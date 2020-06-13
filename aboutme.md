@@ -1,7 +1,7 @@
 ---
 layout: page
-title: 이게 나야 애송아
-subtitle: Why you'd want to go on a date with me
+title: About me
+subtitle: 
 ---
 
 My name is Inigo Montoya. I have the following qualities:
