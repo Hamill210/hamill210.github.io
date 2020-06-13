@@ -1,6 +1,6 @@
 ---
 layout: page
-title: About me
+title: 이게 나야 애송아
 subtitle: Why you'd want to go on a date with me
 ---
 
