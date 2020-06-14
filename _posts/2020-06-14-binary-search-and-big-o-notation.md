@@ -1,6 +1,6 @@
 ---
 layout: post
-title: About me
+title: 어바웃미
 subtitle: Why you'd want to go on a date with me
 ---
 
