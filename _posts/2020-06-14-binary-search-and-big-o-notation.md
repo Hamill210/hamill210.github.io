@@ -2,6 +2,7 @@
 layout: post
 title: 어바웃미
 subtitle: Why you'd want to go on a date with me
+tags: [알고리즘, 빅오표기법]
 ---
 
 ## 알고리즘
