@@ -2,7 +2,7 @@
 layout: null
 ---
 
-@import url(https://fonts.googleapis.com/css2?family=Jua&display=swap);
+@import url(https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansLight.woff);
 @import url("pygment_highlights.css");
 
 /* --- General --- */
@@ -12,7 +12,7 @@ html {
 }
 
 body {
-  font-family: 'Jua', sans-serif;
+  font-family: 'GmarketSansLight';
   font-size: 1.125rem;
   color: #404040;
   position: relative;
