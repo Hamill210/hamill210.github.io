@@ -1,11 +1,11 @@
 ---
 layout: post
-title: '[주꼭지 - 알고리즘] 이진 탐색, 빅오 표기법'
-subtitle: Hello Coding 그림으로 개념을 이해하는 알고리즘 1장
+title: '[알고리즘] 이진 탐색, 빅오 표기법'
+subtitle: Hello Coding 그림으로 개념을 이해하는 알고리즘
 tags:
   - Algorithm
   - Big O notation
-  - review
+  - Book review
 published: true
 ---
 
