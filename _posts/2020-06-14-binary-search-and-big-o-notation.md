@@ -1,9 +1,14 @@
 ---
 layout: post
-title: 어바웃미
+title: '[주꼭지 - 알고리즘] 이진 탐색, 빅오 표기법'
 subtitle: Why you'd want to go on a date with me
-tags: [알고리즘, 빅오표기법]
+tags:
+  - 알고리즘
+  - 빅오표기법
+published: true
 ---
+
+Hello Coding 그림으로 개념을 이해하는 알고리즘 리뷰
 
 ## 알고리즘
 
