@@ -1,11 +1,9 @@
 ---
 layout: post
 title: [주꼭지 - 알고리즘] 이진 탐색, 빅오표기법
-subtitle: 
-cover-img: 
+subtitle: 이진 탐색, 빅오표기법을 알아보자
 tags: [빅오표기법, 알고리즘, 이진탐색, 주꼭지]
 ---
-
 
 
 ## 알고리즘
