@@ -2,7 +2,7 @@
 layout: null
 ---
 
-@import url(http://fonts.googleapis.com/css?family=Noto+Sans);
+@import url(https://fonts.googleapis.com/css2?family=Jua&display=swap);
 @import url("pygment_highlights.css");
 
 /* --- General --- */
@@ -12,7 +12,7 @@ html {
 }
 
 body {
-  font-family: 'Noto Sans', sans-serif;
+  font-family: 'Jua', sans-serif;
   font-size: 1.125rem;
   color: #404040;
   position: relative;
