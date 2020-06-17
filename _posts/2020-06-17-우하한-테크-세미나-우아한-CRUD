@@ -1,16 +1,14 @@
 ---
 layout: post
-title: '[우아한테크세미나] 우아한 CRUD'
-subtitle: 1부 엔티티 클래스 설계와 퍼시스턴스 프레임워크의 활용
+title: '[알고리즘] 이진 탐색, 빅오 표기법'
+subtitle: Hello Coding 그림으로 개념을 이해하는 알고리즘
 tags:
-  - Entity
-  - DTO vs VO
-  - Persistence Framework
-  - Aggregate
-  - DDD
-  - 객체지향설계
+  - Algorithm
+  - Big O notation
+  - Book review
 published: true
 ---
+
 
 ## 경력동안 늘 떠나지 않은 고민
 
