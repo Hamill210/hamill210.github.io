@@ -79,6 +79,7 @@ published: true
 - 여러 Aggregate에 걸친 조회 = 조인 사용 = 성능 저하
 1. 조인을 하지 않고 해결할 수 있는 케이스
   - Service 레이어에서 조합
+
 2. JOIN이 필수적인 경우 (항상 부딪히는 문제)
   - Service 단에서 다른 AGGREGATE 를 다시 조합 (SELECT 문에 같은 AGGREGATE 컬럼만 존재)
   - 맞춤형 전용 DTO 생성 (SELECT 문에 다른 AGGREGATE 컬럼도 존재)
@@ -87,9 +88,9 @@ published: true
 
 ### Repository vs DAO
 1. DAO 
-- 퍼시스턴스 레이어를 캡슐화
+  - 퍼시스턴스 레이어를 캡슐화
 2. Repository
-- 도메인 레이어에 객체 지향적인 컬렉션 관리 인터페이스를 제공
+  - 도메인 레이어에 객체 지향적인 컬렉션 관리 인터페이스를 제공
 
 - REPOSITORY를 깔끔하게 유지는 하는데 이 2가지 개념을 구분해서 생각하는 게 
 	도움이 됐던 것 같다. REPOSITORY는 AGGREGATE와 1:1 개념, DAO는 앞과 같은 생각을 안하는, 
