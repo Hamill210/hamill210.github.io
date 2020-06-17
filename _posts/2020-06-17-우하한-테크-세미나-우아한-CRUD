@@ -1,0 +1,866 @@
+---
+layout: post
+title: '[우아한테크세미나] 우아한 CRUD'
+subtitle: 1부 엔티티 클래스 설계와 퍼시스턴스 프레임워크의 활용
+tags:
+  - Entity
+  - DTO vs VO
+  - Persistence Framework
+  - Aggregate
+  - DDD
+  - 객체지향설계
+published: true
+---
+
+## 경력동안 늘 떠나지 않은 고민
+
+- DB 테이블과 연관된 클래스를 어떻게 만들어야할까?
+- 퍼시스턴스 프레임워크는 어떤 것을 써야 할까?
+    - 매 프로젝트마다 MyBatis, JPA, JDBC 등등 JVM 위에서 돌아가는 퍼시스턴스 프레임워크 중에서 어떤 것을 사용해야 할까 고민한다.
+
+## 발표 주제
+
+- 이 고민을 풀어가는 과정에서 경험, 글, 주변 동료로부터 배운 것들
+
+---
+
+## 뭐라고 부를까?
+
+- Model 1?
+    - Model 2가 MVC 이다
+- SMART UI 패턴
+    - Domain-Driven Design(에릭에반스, 200)의 1장에서 소개
+    - JSP에 모든 걸 갖다 박은 코드가 예가 될 수 있다
+    - 에릭 에반스는 안티 패턴으로 분류해뒀다
+    - 어떤 게 안좋을까?
+        - 컴파일(빌드) 시점에 속성명, 타입 검사 안함
+            - Map으로 하다 보면 오타를 찾는다던지, 타입을 알기도 어렵고, 단순히 조회를 한다고 하면 괴로워진다
+        - SQL, 로직의 중복
+            - SQL이 한 화면에 있기 때문에 예를 들어 목록 화면이 비슷한데 또 있거나 (중복 발생), 한 군데 고쳐야 할 게 아니고 여러 군데 고쳐야 한다. 로직도 SQL에서 가져온 것을 가공을 하거나 공통 로직이 있으면 그럴 수록 구조가 알아보기 힘들게 바뀐다.
+        - 테스트 코드 작성의 어려움
+            - JSP가 자바 코드로 컴파일되긴 하지만 JSP를 다른 곳에서 메서드를 호출할 수 있는 부분이 없기 때문에 테스트 하기 어려움
+
+그래서 결국에 이 다음 단계 2000년대 초반에는 (JSP를 분리해서 SQL은 자바 서블릿에서 처리한다던가 전달하다던가 했음)
+
+- 뷰 레이어의 분리
+    - java.util.Map의 한계
+        - Map에 뭐가 들어있는지, 어디에서 어떤 속성이 참조되고 있는지 확인하기 어렵다.
+            - 예전에는 하나의 파일에 모든 게 들어있어서 쿼리 추적이 쉬웠지만 이제는 분리되다 보니 Map으로 전달하는 것에서 문제가 발생
+        - 실수 고치기 어려움
+            - 초고속인줄 알았으니 더 이상 초고속이 아니다.
+
+### 속성 값을 담을 클래스가 필요하다
+
+→ 결국에는 어떤 클래스를 만들어서 무언가를 담아야 겠다고 생각했다.
+
+---
+
+이렇게 속성 값을 담은 클래스가 나오다 보니까 부정적으로 나오기 시작했던 패턴들이 있다.
+
+## 만능 클래스(1) (또는 Super VO)
+
+DB 컬럼, 응답, 요청에 필요한 모든 속성을 하나의 클래스에 정의
+
+```java
+public class Issue {
+     private int id;
+     private String title;
+     private List<Account> subscribers;
+     private String searchKeyword; // 검색어
+     private boolean subscribed; // 내가 구독하고 있는지의 여부
+}
+```
+
+레이어별로 다른 역할이 있는데 그걸 하나로 뭉침
+
+## 만능 클래스(2)
+
+연관된 모든 테이블의 데이터를 담은 클래스
+
+하나의 클래스가 많은 엔티티들을 다 연관관계를 가지고 있음
+
+```java
+public class Issue {
+     private Repo repo;
+     private List<Comment> comments;
+     private List<Label> labels;
+     private Milestone milestone;
+     private List<Account> partipants;
+}
+```
+
+- 이렇게 사용해야지 JPA 장점을 모두 사용한다고 생각하고 쓰는 사람들이 많은데 하다보면 안 좋은 점들이 많이 발견되고 있습니다
+- Account(사용자 계정) 객체가 account.id를 참조하는 모든 테이블과 대응되는 객체를 의존하는 경우
+    - Account(사용자 계정) 객체에서 양방향 참조를 남용하다 보면은 예를 들어 Comment에도 account.id가 있고 Label에도 account.id가 있다 보면은 결국 account 클래스에는 온갖 의존성이 다 걸려있게 된다.
+
+```java
+public class Account {
+     private List<Issue> myIssues;
+     private List<Repo> myRepos;
+     private List<Comment> myComment;
+     private List<Label> myLabels;
+}
+```
+
+- User(Account) 클래스를 보면 ORM 사용 성숙도를 알 수 있다.
+    - JPA를 사용할 때 부작용을 줄이며 쓰고 있느냐, 성숙하게 쓰고 있는가, 잘 사용하고 있나 라고 물어보면 User 클래스를 보라고 말씀드리고 있다.
+    - ORM에 온갖 의존성이 다 걸려 있다면 상당히 많은 부작용이 있거나, 아니면 시스템이 작아가지고 N+1 문제가 발생해도 개의치 않고 있다거나 그럴 가능성이 높다고 보고 있어요
+
+계속해서 이런 패턴의 단점을 말해보면
+
+## 부작용
+
+- 성능 저하
+    - 항상 연관된 객체를 다 조회한다면 불필요한 쿼리가 많이 날아감
+        - 결국에 위와 같은 의존관계가 많이 걸려있다면 불필요한 쿼리가 많이 날아가고 시스템이 커지면 성능이 많이 안좋아진다.
+    - N + 1 쿼리 주의해야 함
+        - 주의하지 않으면 쿼리가  하나만 들어가고 수백개가 날아가는 걸 본적이 있다. 물론 최적화하는 방법이 있지만 최적화 할 때도 신경쓸 것이 많아진다.
+
+이런 것들을 잘 해결하는 방법이 lazy loading이 있다 (그렇지만 lazy loading이 모든 것을 해결해주지 않는다. 그렇지만 lazy loading이 없다면 또 골치아프다)
+
+- Lazy loading을 쓰지 않고 수동으로 값을 채울 때의 난관
+    - 값이 채워졌는지 채워지지 않았는지 확인하기 어려운 문제가 발생
+    - Issue.getComments() 에 값이 채워질지 아닐지는 DAO 내부까지 따라가봐야 알 수 있다.
+    - 비슷한 메서드가 여러 개 생길 수도 있다.
+        - findIssueById(), findIssueByIdWithComments()
+
+---
+
+## 만능 클래스가 뷰까지 바로 전달됨
+
+엎치고 덮친 격에 레이어 별로 모든 책임을 다 지고 있고 옆으로도 모든 엔티티, 테이블을 다 담고 있는 클래스가 뷰까지 바로 전달되면 더 힘들어질수 있다.
+
+- JSP/Freemarker, SpEL에서 깊은 객체 탐색이 이루어질 가능성이 높음
+    - 객체 참조 관계를 바꾸는 비용이 큼
+
+```java
+<div>${issue.milestone.creator.email}</div>
+
+- 위의 JSP/Freemarker, SpEL(Spring Express Language) 에서
+	위와 같은 복잡한 만능 클래스를 참조하면 이런 형태로 길게 참조하게 된다.
+- 이 때 creator 안에 email을 mail로 바꾼다던지 리팩토링을 진행했을 때
+	JSP/Freemarker, SpEL로는 컴파일 타임 검증이 안된다.
+- 그렇기 때문에 고쳐도 당장 에러를 못 만나고 운영 서버에 배포해야지 만나거나
+	이런 식으로 에러를 만드는 상황이 발생할 수 있다.
+```
+
+- SMART UI 패턴이 그리워질 수도 있는 상황이 올 수 있음
+
+---
+
+## 패턴과 이름
+
+해법은 어떻게 찾아야할까? 어찌됐든 어떤 클래스를 만들어야 한다.
+
+- 그 클래스를 뭐라고 불러야하나?
+- 현장에서 많이 쓰이는 이름
+    - Java Beans
+    - VO
+    - DTO
+    - Entity
+
+---
+
+## Java Beans
+
+- JavaBeans Spec이 있음(썬마이크로시스템즈부터 정의된 스펙이 있음)
+    - 현재 이 스펙을 다 의식하고 개발하는 사람은 거의 없음
+    - getter/setter는 많은 프레임워크에서 활용되고 있고는 있음
+        - 게터/세터는 많이 쓰이고 있기 때문에 많은 프레임워크에서 활용된다
+    - 그 역할을 하는 객체가 setter가 꼭 있어야하는 것은 아니다.
+
+이걸 자바 빈즈라고 부르기 애매한게 아까 DB에서 조회한 값을 갖는 객체가 꼭 게터/세터 특히 세터가 꼭 있어야하는 건 아니다. Immutable하게 빌더같은 것을 이용해서 세터 없이도 만들 수 있기도 하다. 이런 것을 자바 빈즈로 부르기에는 이제는 적절하지 않은 것 같다
+
+---
+
+## VO vs DTO
+
+많이 쓰이는 게 VO와 DTO인데 이 2 개가 용어 상의 혼란이 상당히 있다. 여기에 대해 자료를 찾아보며 정리해봤다. (가장 보편적이고 다른 사람들도 동의할 수 있는 자료를 엄선했다)
+
+### Value Object
+
+- 값이 같으면 동일하다고 간주되는, 식별성이 없는 작은 객체(예: Money, Color)
+    - 마틴 파울러의 정의, 위키피디아의 정의
+    - JEP 169 : Value Object (JEP : Java Language Spec)
+    - DDD에서도 이 정의를 따르고 있음
+    - Hibernate 메뉴얼의 Value Type도 Value Object를 포함한다고 생각됨.
+
+많은 분들이 DTO 라는 개념과 같이 같은 의미로 혼용해서 사용하고 있었다.
+
+- DTO와 혼용해서 쓰여 왔다
+    - Core J2EE Pattern 1판(2001년)에서는 TO(Transfer Object)를 VO라고 적었었음
+        - 2판에서는 VO를 TO라고 적었다. 아마 그 때부터 초창기 개발자들은 이런 관례가 남아있어서 UserVO 이런걸 계속 붙이시는 것 같다.
+
+    이거 우리나라만 그런 게 아니고 이런저런 외국책을 보더라도 TO와 VO는 같은 것이라고 주장하는 책들이 많이 있다
+
+    - DTO와 동일한 의미라고 밝힌 서적도 있음
+        - Expert One-to-One J2EE Development(로드존슨, 2004) : (265페이지) Value objects are sometimes referred to as Data Transfer Object(DTOs)
+            - 스프링 창시자가 쓴 책
+            - Value object는 때로는 DTO라고 일컬어진다
+        - Professional Java EE Design Pattern(2014): (12장) The DTO is also referred to as the Value Object
+        - The Java EE Architect's Handbook, Second Edition(2014): (5장) My definition of "value object" is very close to a Data Transfer Object(DTO)
+
+    이건 약간 폭넓게 의미를 확장해서 사용하는 것 같고 어떻게보면 이게 Money, Color 같은 건 아니긴 하지만 주로 데이터 중심적인 개발을 할 때 DB에 있는거나 어떤 값을 싣어서 나르는 객체가 Value Object라고 한다면 그게 뒤에 나오는 엔티티처럼 식별성에 의미를 가진다거나 되게 리치 도메인으로 안써서 그냥 VO라고 하지 않았나 생각이 든다. 
+
+    - Data Holder의 의미로 폭넓게 생각하는 경향도 있음
+        - 데이터 holder도 데이터를 값만을 나르는 의미에서 VO를 쓰고 있지 않나 생각이 드는데 이 정의는 뒤에가서 좀더 생각을 해볼 예정이다.
+
+## DTO(Data Transfer Object)
+
+- 원격 호출을 효율화하기 위해 나온 패턴
+    - 마틴 파울러의 페이지에서 용어의 역사까지 설명
+        - 애매한 개념이 있을때 마틴 파울러의 사이트에 가면 잘 설명이 되어 있다. 용어 탄생의 역사도 나와있음.
+        - 아까 말했던 J2EE 책에서 초기에는 어떻게 설명이 됐다라는 것까지 적시되어 있다
+        - [https://martinfowler.com/eaaCatalog/dataTransferObject.html](https://martinfowler.com/eaaCatalog/dataTransferObject.html)
+    - Core J2EE Pattern 2판(2003년)에서는 TO로 이름을 붙임
+        - 2판에서 TO로 바뀌었는데 VO랑 혼용해서 씀
+
+요즘 와서는 최초의 J2EE에 나왔던 개념과는 조금 달라진 것 같다.
+
+- 네트워크 전송 시의 Data holder 역할로 요즘은 폭넓게 쓰이는 느낌
+    - MSDN의 DTO(데이터 전송 객체) 만들기에서는 네트워크를 통해 데이터를 전송하는 방법을 정의하는 객체
+    - CQRS journey 5장 : 수정할 속성을 담는 객체도 DTO로 정의
+
+그래서 이것도 고민 해 볼 필요가 있다
+
+저도 제일 처음에 나온 원격 호출을 줄이는 맥락이 아닌데도 DTO라는 패턴을 똑같이 쓸 수 있을까라는 고민을 많이 해봤다 (Data holder의 역할로만 사용해도 되는지 생각해봤다는 뜻인듯)
+
+- 해결하는 문제와 맥락이 달라졌는데 같은 패턴 이름을 쓸 수 있을까?
+    - '레이어 간의 경계를 넘어서 데이터를 전달'하는 역할은 과거와 동일하다고 생각할 수 있음.
+    - 다만 다양한 객체의 역할을 다 DTO로 칭하는 건 혼란이 있음
+        - 예) HTTP 요청으로 오는 파라미터를 담을 객체, 통계 쿼리의 결과를 담을 객체
+        - 예) QueryDSL에서 DB 조회 결과를 담을 객체
+
+QueryDSL 메뉴얼에 있는 DTO 관련 예제
+
+```java
+List<UserDTO> dtos = query.list(
+    Projections.fields(UserDTO.class, user.firstName, user.lastName));
+```
+
+- 의견 : DTO가 처음에 나온 배경하고 지금 문제를 해결하기 위해 쓰이는 배경하고는 달라졌지만 역할 자체로는 크게 변하진 않아서 쓰일만 하다. 그러나 무조건 이것도 DTO, 저것도 DTO 하는 것은 한번 더 깊이 들어가서 역할을 잘 정의할 수 있는 이름으로 생각해보자.
+
+---
+
+## Entity와 Value Object의 구분
+
+### Entity
+
+- 사전적 의미 : 실체 Something that exists apart from other things, having its own independent existence
+    - 데이터베이스 설계할 때도 엔티티, HTTP Resposne에도 엔티티, 웹 요청 설계할 때도 엔티티가 있다.
+- JPA의 @Entity로 익숙한 개념: DB 테이블과 대응되는 객체
+
+어느정도 일관된 체계를 따라서 용어를 정의한다고 하면 DDD 용어를 채용해보는 게 어떨까 제안하고 싶다.
+
+```java
+성철님이 '요즘 네트워크 전송과 관계없이 1회성 전송 객체를 DTO라고 부르는 
+것 같다' 라고 해주셨는데 저도 Data holder를 그렇게 부르는 것 같다는 
+것에 공감한다.
+```
+
+## DDD의 용어
+
+(DDD 책에서처럼 대문자로 표기)
+
+- ENTITY : 연속성과 식별성의 맥락에서 정의되는 객체
+    - 이슈와 이슈가 모두 똑같다고 하더라도 이슈 ID가 다르면 다른 엔티티일 것이다. 이 이슈는 퍼시스턴트하게 저장되서 연속성이 있는 실체라고 할 수 있다
+- VALUE OBJECT : 식별성 없이 속성만으로 동일성을 판단하는 객체
+
+---
+
+개념을 DDD 중심으로 정리를 하고 앞에 나온 만능 오브젝트 문제를 정리해보려고 한다.
+
+## ENTITY를 감추기
+
+만능 오브젝트 첫번째 문제
+
+### ENTITY가 뷰, API 응답에 바로 노출될 때의 비용
+
+- 캡슐화를 지키기 어려워진다.
+    - 꼭 필요하지 않는 속성도 외부로 노출되어 향후 수정하기 어려워진다.
+
+- JSP, Freemarker에서의 객체 참조
+    - 컴파일 시점의 검사 범위가 좁다 → ENTITY 클래스를 수정했을 때 뷰에서 에러가 나는 경우가 뒤늦게 발견된다.
+    - JPA를 쓴다면 OpenEntityManagerInViewFilter를 고려해야한다.
+        - 초보 개발자는 쿼리가 실행되는 시점을 예상하지 못한다.
+
+- JSON 응답
+    - @JsonIgnore, @JsonView 같은 선언이 많아지면 JSON의 형태를 클래스만 보고 예측하는 난이도가 올라간다.
+
+```java
+# 중간 댓글
+박재성님 댓글 'Value Object의 특징 중 하나는 불변성이 DTO의 역할을
+할 수 있게 만드는 것 같아요' 불변성도 뒤에 말씀드릴건데 DTO가 Immutable 하면
+상당한 장점이 있어요.
+```
+
+결국에는 손이 가더라도 외부 노출용 DTO를 따로 만든다
+
+### 외부 노출용 DTO를 따로 만들기
+
+- ENTITY → DTO 변환 로직은 컴파일 타임에 체크된다.
+- DTO는 비교적 구조를 단순하게 가져갈 수 있다.
+    - 더 단순한 JSON 응답, JSP에서 쓰기 좋은 구조를 만들기에 유리하다.
+
+- DTO의 변화는 외부 인터페이스로 의식해서 관리하는 범위가 된다.
+    - 예: Swagger 스펙 활용
+    - DTO Layer는 그냥 자바 클래스라도 사실상 외부에 노출되는 인터페이스 역할을 하게 되는 것 같아요. 예를 들어 스웨거 같은거 연동하면. 그 변화는 엄격하게 관리를 해서 속성 변경은 거의 못한다거나 인터페이스처럼 관리하는 식으로 하는 게 경계가 명확해지는 방법 같아요.
+- 여러 ENTITY를 조합할 수 있는 여지가 생긴다.
+    - 이슈, 코멘트 여러 개 조합해가지고 하나의 리스폰스 용 DTO를 만든다면 좀더 ENTITY 설계가 가벼워질 수 있는 여지가 생기는 것 같아요.
+
+이것도 쉽지 않은 게 비슷한 객체가 많이 생기는 것 같다. 그럴 때마다 이름 붙이는 고민이 많아지는 것 같다.
+
+### DTO의 이름 고민
+
+- 역할 별로 구분된 DTO 정의 예
+    - 이슈 조회 JSON 응답 : IssueResponse, IssueDto, IssueDetailDto
+    - 이슈 생성 JSON 요청 : IssueCreationRequest, IssueCreationCommand
+    - 이슈 조회 조건 : IssueQuery, IssueCriteria
+    - 이슈 DB 통계 조회 결과 : IssueStatRow
+    - 이슈 + 코멘트 복합 조회 결과 : IssueCommentRow
+
+---
+
+많은 테이블을 참조하는 것을 어떻게 끊을 것인가?
+
+## AGGREGATE로 ENTITY 간의 선긋기
+
+### AGGREGATE는?
+
+- 하나의 단위로 취급되는 연관된 객체군, 객체망
+    - ENTITY와 VALUE OBJECT의 묶음
+    - 엄격한 데이터 일관성, 제약사항이 유지되어야 할 단위
+    - Transaction, Lock의 필수 범위
+    - 불변식(Invariants, 데이터가 변경될 때마다 유지되어야 하는 규칙)이 적용되는 단위
+    - Document DB와 어울림
+
+이 방식은 엔티티간의 경계를 끊는데 많은 도움이 됨
+
+- AGGREGATE 1개당 REPOSITORY 1개
+    - AGGREGATE ROOT를 통해서 AGGREGATE 밖에서 AGGREGATE 안의 객체로 접근함
+    - Repository를 쓸 때 aggregate 단위를 의식적으로 꼭 생각해야 되는데, 하나의 aggregate는 하나의 repository와 대응된다고  봐야한다.
+
+- AGGREGATE_ROOT로 저장 대상 타입을 표현해본 CrudRepository
+
+```java
+public interface CrudRepository<AGGREGATE_ROOT, ID> extends Repository<AGGREGATE_ROOT, ID> {
+    Optional<AGGREGATE_ROOT> findById(ID id);
+    ...
+}
+```
+
+### AGGREGATE 경계가 있는 시스템
+
+- 별도의 저장소나 API 서버를 분리할 때 상대적으로 유리
+    - AGGREGATE 밖은 eventual consistancy를 목표로 할 수도 있다.
+    - 여러 AGGREGATE의 변경은 Event, SAGA, TCC 등의 패턴을 활용할 수도 있다.
+        - 어쨌든 시스템 간의 느슨한 패턴으로 하나의 DB 안에서 트랜잭션보다는 더 다양한 방법을 생각 해볼 수 있게 된다. 어떻게 보면 코딩하기 더 번거로울 수 있는데 시스템 확장을 위해서 치뤄야 할 트레이드 오프라고 생각할 수 있다.
+- AGGREGATE별로 Cache를 적용하기에도 좋다
+- 분리할 계획이 없더라도 코드를 고칠 때 영향성을 파악하기가 유리하다.
+
+### AGGREGATE 식별 시 의식할 점
+
+- CUD + 단순 R(findById)에 집중
+    - 모든 R을 다 포용하려고 한다면 깊은 객체 그래프가 나온다.
+
+- (JPA를 쓴다면) Cascade를 써도 되는 범위인가?
+    - Delete를 쓰면 같이 delete가 전파되거나 하는 JPA의 옵션 중 하나
+    - 엔티티 경계를 다시 생각해봐야 하나 하는 신호 일수도 있다
+
+## AGGREGATE 간의 참조
+
+- 다른 AGGREGATE의 Root를 직접 참조하지 않고 ID로만 참조하기
+
+Stackoverflow의 한 답변
+
+```java
+It makes life much easier if you just keep a reference of 
+the aggregate's ID rather than the actual aggregate itself.
+
+어그리거트의 객체를 참조하지 않고 id를 참조한다면 인생이 좀더 
+편해질 것이다
+```
+
+```java
+public class Issue  {
+    private Repo repo;
+}
+```
+
+과도하게 repo를 침범할 기회를 줌
+
+→ 
+
+좀 더 보완된 형태. 
+
+```java
+public class Issue  {
+    private long repoId;
+}
+```
+
+→ 참조될 타입을 알 수 있도록 힌트를 주는 클래스를 만들어도 좋다.
+
+좀 더더 보완된 형태
+
+```java
+public class Issue  {
+    private Association<Repo> repoId;
+}
+```
+
+```java
+public class Association<T>  {
+    private final long id;
+
+    public Association(long id) {
+        this.id = id;
+    }
+    ...
+}
+```
+
+- Spring Data JDBC의 AggregateReference 도 같은 역할
+
+---
+
+## 여러 AGGREGATE에 걸친 조회
+
+결국 조인을 통해서 해결해야 하지 않을까?
+
+조인을 하지 않고 해결할 수 있는 케이스가 좀 있다.
+
+### Service 레이어에서 조합
+
+```java
+MilestoneEntity milestone = milestoneRepository.findByid(milestoneId);
+int issueCount = issueRepository.countByMilestoneId(milestoneId)
+
+var miletoneReponse  = MilestoneResponse.builder()
+    .name(milestone.getName())
+    .endedAt(milestone.endedAt())
+    .issueCount(issueCount)
+    .build();
+```
+
+- DB 성능에 더 유리할 수 있다.
+    - 각각의 쿼리가 단순해 진다.
+        - 위 예시보다 좀더 복잡한 쿼리를 쪼개면 이익을 명확히 보일 수 있을 것이다.
+
+- Application/DB 레벨의 캐쉬에 더 유리하다
+    - 마일스톤과 이슈가 한 곳에 같이 묶여있다면 캐쉬가 증가하면 이슈가 늘어날 때마다 캐쉬가 계속 invalidate(무효화하다)되어야 한다. 만약 따로따로 한다면 마일스톤은 캐쉬를 하고 이슈는 캐쉬를 안한다고 해서 캐쉬를 부분적으로 적용해서 좀더 효율적으로 데이터 조율을 할 수 있다. 데이터베이스 입장에서도 같은 쿼리가 오면 메모리에 올린다거나 DB 레벨에서 예측성이 높은 쿼리가 발생할 가능성이 높아지겠죠?
+
+### JOIN이 필수적인 경우 (항상 부딪히는 문제)
+
+- WHERE 절에 다른 AGGREGATE의 속성이 필요한 경우
+
+```sql
+SELECT r.name, r.description, r.created_by, r.created_at
+FROM repo r
+    INNER JOIN account a ON a.id = r.created_by
+WHERE a.email = :email
+```
+
+- Repository에 조회 조건 정도를 추가하고 Service 단에서 다른 AGGREGATE 를 다시 조합할 수도 있다.
+    - List<Repo> findByCreatorEmail(String email)
+
+- SELECT 결과까지 다른 AGGREGATE의 속성을 포함 할 경우
+
+```sql
+SELECT r.name, r.description, a.name AS creator_name , a.email
+FROM repo r
+    INNER JOIN account a ON a.id = r.created_by
+WHERE a.email = :email
+```
+
+- 맞춤형 전용 DTO를 만들 수 있다.
+- 클래스가 늘어나지만 장점도 있다
+    - AGGREGATE를 단순하게 유지할 수 있다.
+    - JPA의 경우 : Persistent Context를 의식하지 않아도 된다.
+
+- 이런 쿼리는 REPOSITORY보다는 DAO에 어울린다.
+    - 엔티티의 경계를 상당히 끊고 가는 이런 쿼리들은 REPOSITORY보다 DAO가 맞다고 생각한다. 둘의 차이는 무엇일까?
+
+---
+
+## REPOSITORY vs DAO
+
+- DAO는 퍼시스턴스 레이어를 캡슐화
+    - J2EE 패턴 때 옛날 NTTP 같은옛날 기술 나올 때 같이 나온 개념
+- DDD의 REPOSITORY는 도메인 레이어에 객체 지향적인 컬렉션 관리 인터페이스를 제공
+    - 역할은 비슷하긴한데 꼭 저장소가 RDB가 아닌 추상화된 개념이라고 생각하면 된다. 아까 나온 엔티티, AGGREGATE를 접근하기 위한 단위라서 좀 같은 역할이라고 하지만 개념이라도 좀더 DDD 맥락에서 생각하면 될 것 같다.
+
+DAO와 REPOSITORY 논쟁 중에서
+
+```
+개인적으로 TRANSACTION SCRIPT 패턴에 따라 도메인 레이어가 구성되고 
+퍼시스턴스 레이어에 대한 FAÇADE의 역할을 하는 객체가 추가될 때는 
+거리낌 없이 DAO라고 부른다. 도메인 레이어가 DOMAIN MDOEL 패턴으로 
+구성되고 도메인 레이어 내에 객체 컬렉션에 대한 인터페이스가 필요한 경우에는 
+REPOSITORY라고 부른다. 결과적으로 두 객체의 인터페이스의 차이가 보잘 것 
+없다고 하더라도 DAO가 등장하게된 시대적 배경과 현재까지 변화되어온 과정 
+동안 개발 커뮤니티에 끼친 영향력을 깨끗이 지워 버리지 않는 한 DAO와 
+REPOSITORY를 혼용해서 사용하는 것은 더 큰 논쟁의 불씨를 남기는 것이라고 
+생각한다
+```
+
+- REPOSITORY를 깔끔하게 유지는 하는데 이 2가지 개념을 구분해서 생각하는 게 도움이 됐던 것 같다. REPOSITORY는 AGGREGATE와 1:1 개념, DAO는 앞과 같은 생각을 안하는, 그런 것을 깨고 접근할 때 생각하는 것 같다.
+
+---
+
+좋은 기능이다. lazy loading이 있음으로써 좀더 추상화된 클래스, 메서드를 많이 만들 수 있다.
+
+## Lazy loading 다시 생각하기
+
+- AGGREGATE를 정리하고 복합 조회용 객체를 분리하면 Lazy loading이 필수일지 한번 더 생각해볼수 있다.
+- 반대로 Lazy loading이 있어서 깊은 객체 그래프의 AGGREGATE를 설계하고자하는 유혹에 빠질수도 있다.
+- Lazy loading이 필요하다는 것은 모델링을 다시 생각해봐야한다는 신호일수도 있다.
+
+CQRS Journey의 Chapter 3 중에서
+
+```
+Developer 2: To be clear, the aggregate boundary is here to group 
+things that should change together for reasons of consistency. 
+A lazy load would indicate that things that have been grouped together 
+don't really need this grouping.
+
+Developer 1: I agree. I have found that lazy-loading in the command 
+side means I have it modeled wrong. If I don't need the value in 
+the command side, then it shouldn't be there.
+```
+
+- 이런 것들의 전제가 이루어지기 위해서는 복잡한 조회를 어떻게 빼낼까? 이런 것이 또 하나의  숙제다.
+
+---
+
+## Immutable과 Rich Domain Object
+
+### 캐쉬 부작용 사례
+
+```java
+public Issue findIssue(long issueId, long accountId)
+    Issue issue = repository.findById(issueId); // 캐쉬된 객체를 변환
+    if(isMyIssue(checkMyIssue(issue, accountId)) {
+        // 추가 적인 처리
+    }
+    return issue;
+}
+
+boolean checkMyIssue(Issue issue, long accountId) {
+    if (accountId == issue.getCreatedBy()) {
+        issue.setMyIssue(true);
+        // 캐쉬된 객체의 상태를 바꿔버림
+        // 문제1: 메서드 이름과 어울리지 않아 예측이 어렵다.
+        // 문제2: issue를 보는 특정 사용자에게 한정된 뷰의 값인데 Issue객체에 함께 있다.
+        return true;
+    }
+    return false;
+}
+```
+
+### Immutable 객체의 장점
+
+- Cache 하기에 안전하다
+- 다른 레이어에 메서드 파라미터로 보내도 값이 안 바뀌었다는 확신을 할 수 있다.
+- DTO류가 여러 레이어를 오간다면 Immutable하면 더 좋다.
+    - 보낼 때, 생성할 때 바뀌지 않는 점이 개발할 때 안심할 수 있어서 좋다.
+
+근데 모든 객체를 Immutable하게 해야 하나 하는 고민을 할 수 있다. 
+
+### Rich Domain Object
+
+- Domain object가 가진 속성과 연관된 행위
+    - 도메인 객체는 때론 객체의 상태를  바꾸는데 상태가 바뀌면 더이상 Immutable하지 않다.
+    - 해당 객체에 있는 것이 책임이 자연스럽다. (INFOMATION EXPERT 패턴)
+        - 그 객체가 가진 속성들 중 잘 할 수 있는 오퍼레이션으로 그 객체한테 책임을 준다
+    - 데이터 중심 → 책임 중심의 설계로 진화할 수 있다.
+
+- 상태를 바꾸는 메서드가 포함될 수도 있다.
+    - 상태를 바꿀 때의 정합성 검사를 포함
+    - 예) Domain Event 추가. Spring Data의 AbstractAggregateRoot
+- Immutable이 아니게 될 수 있다.
+- 영속화될 Domain Object라면 상태를 바꾸는 건 시스템의 상태를 바꾸는 경우에 한해야 한다.
+    - 만약 상태를 바꾸는 오퍼레이션 메서드가 있다면 시스템 전체 상태를 바꾸는 것(예 : 이슈 타이틀을 바꿀 때 DB의 타이틀까지 변경) 그런 행위일 때 호출하는 것은 상당히 정당한 것 같다.
+    - 메서드명도 그 행위를 잘 드러내어야한다. (setTitle() → changeTitle())
+        - 만약 위와 같은 경우에 바뀔 때 setter를 사용하기보단 change를 사용하는 게(행위를 적극적으로 나타내는) 좋을 것 같다.
+
+---
+
+## 끝나지 않는 고민
+
+- 비슷한 속성을 가진 클래스가 너무 많이 생기는 건 아닐까?
+    - 예) 이슈의 제목과 관련된 속성을 담은 클래스
+        - IssueCreationCommand, IssueCriteria, IssueDetailResponse, IssueCreatedEvent
+        - IssueCreationCommand, IssueModificationCommand를 따로 만들어야하나?(id 등 차이가 나는건 1개고 동일한 건 10개일때)
+    - 이름 짓기가 어렵다
+
+- 객체 간의 매핑 로직에서의 실수
+    - 코딩이 좀더 많아지면서 생기는 실수가 더 생긴다.
+
+---
+
+## 프레임워크 돌아보기
+
+- 선을 넘는 Entity 로는 어떤 프레임워크를 써도 개발이 괴롭다.
+    - 반대로 경계가 잘 쳐진 Entity를 쓴다면 프레임워크의 마법이 필수적이지 않다.
+
+- 프레임워크의 특정 기능을 위해서 추구하는 객체 설계를 포기하는 상황이 적을수록 좋다.
+    - 예 : Spring JDBC의 BeanPropertyRowMapper 를 쓰려면 setter가 필수
+
+---
+
+## SQL 관리 방안
+
+- XML을 벗어나면 컴파일 타임의 검사 영역이 늘어나서 생산성에 큰 도움이 된다.
+- Java/Kotlin/Groovy를 이용한 쿼리 관리 : JPA, MyBatis, Spring JDBC 모두에서 쓸 수 있다.
+
+JDK 13이상의 raw literal String
+
+```java
+class AccountSqls {
+    static String final selectById =
+        """
+        SELECT
+            id, user_id, email
+        FROM
+            account
+        WHERE
+            id = :id
+        """;
+    }
+}
+
+interface AccountRepository extends CrudRepository<Account, Long> {
+    @Query(AccountSqls.selectById)
+    Account findById(Long id);
+}
+```
+
+### Groovy로 SQL 관리
+
+---
+
+## 요약 & 결론
+
+- 선을 넘지 않는 ENTITY
+    - 외부 레이어에 ENTITY 감추기
+    - AGGREGATE 단위로 ENTITY 간의 경계 의식하기(ID만 참조)
+    - 복합적인 READ 결과를 담을 클래스 분리
+
+- 프레임워크는 설계를 거드는 역할이 되어야
+    - 프레임워크에서 주는 제약이 설계에 도움을 주기도 한다.
+    - 편의성을 주는 기능이 설계를 해치는지 경계해야 한다.
+
+- 때로는 다른 가치를 위해 더 긴 코드를 만들 수도 있다.
+    - 고치기 쉬운, 협업하기 쉬운, 확장하기 쉬운 코드
+
+---
+
+## 키워드
+
+- AGGREGATE
+- 객체지향 설계는 (J2EE나 심지어 자바 같은) 특정 구현 기술보다 더 중요하다. (로드 존슨)
+    - ENTITY 설계는 (JPA나 Spring JDBC 같은) 특정 구현 기술보다 더 중요하다.
+
+---
+
+## 개인적인 정리
+
+```java
+# 아키텍처 패턴(?)의 변화
+1. 모든  것을 한 곳에 담는 형태
+2. 뷰 레이어를 분리하여 관리한 형태 (1번만도 못한 상태 발생)
+3. 속성 값을 담을 클래스를 만드는 형태 (만능 클래스)
+4. 속성 값을 담을 클래스를 만드는 형태(자바빈즈, VO, DTO, Entity) -- 요즘 사용 형태
+
+# 속성 값을 담는 클래스들
+1. 자바빈즈 
+- 자바빈즈 스펙이 존재
+- 구현 규칙이 있다
+- getter/setter 사용
+- 공개 기본 생성자 존재
+- 직렬화 가능해야 함
+
+2. VO
+- (DDD관점에선) 값이 같으면 동일하다고 간주되는, 식별성이 없는 작은 객체(DDD관점)
+- (폭넓게 생각하면) DTO와 같은 의미(데이터를 나르는 측면에서 봤을 때) 
+- 많은 서적에서 DTO와 VO를 거의 같다고 서술했는데 이 이유는 VO를 처음 선보인 책이
+	후에 2판 서적에서는 TO라고 표현했기 때문이다.
+- DDD관점에서 보면 엔티티와 연관 있고, 폭넓게 생각하면 DTO와 같다. 
+
+3. DTO
+- (원래 개념)원격 호출을 효율화하기 위해 나온 패턴
+- (요즘 개념)네트워크 전송 시의 Data holder 역할로 요즘은 폭넓게 쓰이는 느낌
+	(요즘 쓰이는 형태)네트워크 전송과 관계없는 1회성 전송 객체
+- 원래 개념과 다르게 쓰이고 있는데 문제 될 건 없을까?
+	- '레이어 간의 경계를 넘어서 데이터를 전달'하는 역할은 과거와 동일하다고 생각할 수 있음
+	- 다만 다양한 객체의 역할을 다 DTO로 칭하는 건 혼란도 있음
+
+4. Entity
+- 연속성과 식별성의 맥락에서 정의되는 객체(DDD관점)
+- JPA의 @Entity로 익숙한 개념: DB 테이블과 대응되는 객체
+- Entity와 VO를 비교하는 게 의미가 있다
+	- Entity : 속성값이 모두 같아도 id 값이 다르면 다른 엔티티
+	- VO     : 속성값이 모두 같으면 같은 VO
+
+# 만능 클래스 문제를 어떻게 해결했을까?
+1. 엔티티 감추기
+	- ENTITY가 뷰, API 응답에 바로 노출될 때의 비용이 큼
+	- 외부 노출용 DTO를 따로 만들기
+		- 이름 짓기가 어려움(비슷한 속성을 가진 객체가 많이 만들어지기 때문에)
+2. 엔티티 간의 선긋기
+	- 만능 클래스가 많은 테이블을 참조하는 형태가 좋지 않은 문제를 발생시킴
+	- 다른 AGGREGATE의 Root를 직접 참조하지 않고 ID로만 참조하기
+
+# 쿼리로 모든 걸 해결하지 않아야 하는 이유
+- 여러 Aggregate에 걸친 조회 = 조인 사용 = 성능 저하
+1. 조인을 하지 않고 해결할 수 있는 케이스
+	- Service 레이어에서 조합
+2. JOIN이 필수적인 경우 (항상 부딪히는 문제)
+	- Service 단에서 다른 AGGREGATE 를 다시 조합 (SELECT 문에 같은 AGGREGATE 컬럼만 존재)
+	- 맞춤형 전용 DTO 생성 (SELECT 문에 다른 AGGREGATE 컬럼도 존재)
+
+# Repository vs DAO
+1. DAO 
+	- 퍼시스턴스 레이어를 캡슐화
+2. Repository
+	- 도메인 레이어에 객체 지향적인 컬렉션 관리 인터페이스를 제공
+- REPOSITORY를 깔끔하게 유지는 하는데 이 2가지 개념을 구분해서 생각하는 게 
+	도움이 됐던 것 같다. REPOSITORY는 AGGREGATE와 1:1 개념, DAO는 앞과 같은 생각을 안하는, 
+	그런 것을 깨고 접근할 때 생각하는 것 같다.
+
+# Immutable vs Mutable 객체 
+1. Imuutable
+- 다른 레이어에 메서드 파라미터로 보내도 값이 안 바뀌었다는 확신을 할 수 있다.
+- DTO류가 여러 레이어를 오간다면 Immutable하면 더 좋다.
+	- 보낼 때, 생성할 때 바뀌지 않는 점이 개발할 때 안심할 수 있어서 좋다.
+2. Mutable
+- 상태를 바꾸는 메서드가 포함될 수도 있다. 
+	- 만약 상태를 바꾸는 메서드가 있다면 시스템 전체 상태를 바꾸는 
+		(예 : 이슈 타이틀을 바꿀 때 DB의 타이틀까지 변경) 그런 행위일 때 
+		호출하는 건 상당히 정당한 것 같다.
+	- 메서드명도 그 행위를 잘 드러내어야한다
+
+# 끝나지 않는 고민
+- 비슷한 속성을 가진 클래스가 너무 많이 생기는 건 아닐까?
+	- DTO 이름 짓기 어려움
+```
+
+## 프레임워크 돌아보기
+
+- 선을 넘는 Entity 로는 어떤 프레임워크를 써도 개발이 괴롭다.
+    - 반대로 경계가 잘 쳐진 Entity를 쓴다면 프레임워크의 마법이 필수적이지 않다.
+
+- 프레임워크의 특정 기능을 위해서 추구하는 객체 설계를 포기하는 상황이 적을수록 좋다.
+    - 예 : Spring JDBC의 BeanPropertyRowMapper 를 쓰려면 setter가 필수
+
+---
+
+## SQL 관리 방안
+
+- XML을 벗어나면 컴파일 타임의 검사 영역이 늘어나서 생산성에 큰 도움이 된다.
+- Java/Kotlin/Groovy를 이용한 쿼리 관리 : JPA, MyBatis, Spring JDBC 모두에서 쓸 수 있다.
+
+JDK 13이상의 raw literal String
+
+```java
+class AccountSqls {
+    static String final selectById =
+        """
+        SELECT
+            id, user_id, email
+        FROM
+            account
+        WHERE
+            id = :id
+        """;
+    }
+}
+
+interface AccountRepository extends CrudRepository<Account, Long> {
+    @Query(AccountSqls.selectById)
+    Account findById(Long id);
+}
+```
+
+### Groovy로 SQL 관리
+
+- Java문법 호환성으로 학습비용 적음
+  - Lombok등을 써도 잘 어울림
+- 따옴표 3개만 쓴다면 언젠가 아래 명령어로 일괄 파일 변환 가능
+  - find . -name '*.groovy' -print0 | xargs -0 rename 's/.groovy$/.java/
+- Java 코드의 아노테이션에서 Groovy 코드의 상수를 참조할 때 IntelliJ에서 버그가 있음
+  - https://youtrack.jetbrains.com/issue/IDEA-205734 에 신고
+- String interpolation으로 Dynamic SQL 생성 가능
+  - Enum 클래스 등에 대한 오타체크, 자동완성도 됨
+
+```
+class AccountSqls {
+    static String selectAccounts(AccountCriteria criteria) {
+        """
+        SELECT
+            id, name, email
+        FROM
+            account
+        WHERE
+            user_grade = :crteria.grade
+        ${
+            if (criteria.grade == Grade.SPECIAL) {
+                """
+                    AND last_login < :criteria.loginDateLimit
+                """
+            } else {
+                """
+                    AND last_login > :criteria.loginDateLimit
+                """
+            }
+        }
+        """
+    }
+}
+```
+[그림1](https://github.com/benelog/entity-dev/raw/master/src/img/groovy-auto-complete.png)
+
+
+### Kotlin 으로 쿼리 관리
+- Groovy 대비 약점
+  - Java만 아는 사람에는 새로운 언어라는 거부감이 있을 수도 있음
+    - (반론) SQL관리 용도로 몇가지 문법만 쓰면 학습 비용이 높지 않음
+  - Java와 섞어 쓸때 주의할 점
+    - Lombok과 같이 쓰면 컴파일 순서 등을 신경써야 함. ( Kotlin 도입 과정에서 만난 문제와 해결 방법 )
+
+- Groovy 대비 강점
+  - 컴파일 타임에 체크되는 범위가 더 넓음
+  - [그림2](https://github.com/benelog/entity-dev/raw/master/src/img/kotlin-warning.jpg)
+  - Groovy에서는 위와 같은 경우 경고가 없이 쿼리 null 이라는 문자열이 마지막에 의도하지 않게 들어감 
+  
+  ...
+  ...
+  
+ (이하 생략)
+ 
+---
+
+# 정리
+
+## 요약 & 결론
+
+- 선을 넘지 않는 ENTITY
+    - 외부 레이어에 ENTITY 감추기
+    - AGGREGATE 단위로 ENTITY 간의 경계 의식하기(ID만 참조)
+    - 복합적인 READ 결과를 담을 클래스 분리
+
+- 프레임워크는 설계를 거드는 역할이 되어야
+    - 프레임워크에서 주는 제약이 설계에 도움을 주기도 한다.
+    - 편의성을 주는 기능이 설계를 해치는지 경계해야 한다.
+
+- 때로는 다른 가치를 위해 더 긴 코드를 만들 수도 있다.
+    - 고치기 쉬운, 협업하기 쉬운, 확장하기 쉬운 코드
+
+---
+
+## 키워드
+
+- AGGREGATE
+- 객체지향 설계는 (J2EE나 심지어 자바 같은) 특정 구현 기술보다 더 중요하다. (로드 존슨)
+    - ENTITY 설계는 (JPA나 Spring JDBC 같은) 특정 구현 기술보다 더 중요하다.
