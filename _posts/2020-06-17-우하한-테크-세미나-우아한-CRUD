@@ -819,7 +819,7 @@ class AccountSqls {
     }
 }
 ```
-[그림1](https://github.com/benelog/entity-dev/raw/master/src/img/groovy-auto-complete.png)
+![그림1](https://github.com/benelog/entity-dev/raw/master/src/img/groovy-auto-complete.png)
 
 
 ### Kotlin 으로 쿼리 관리
@@ -831,7 +831,7 @@ class AccountSqls {
 
 - Groovy 대비 강점
   - 컴파일 타임에 체크되는 범위가 더 넓음
-  - [그림2](https://github.com/benelog/entity-dev/raw/master/src/img/kotlin-warning.jpg)
+  - ![그림2](https://github.com/benelog/entity-dev/raw/master/src/img/kotlin-warning.jpg)
   - Groovy에서는 위와 같은 경우 경고가 없이 쿼리 null 이라는 문자열이 마지막에 의도하지 않게 들어감 
   
   ...
