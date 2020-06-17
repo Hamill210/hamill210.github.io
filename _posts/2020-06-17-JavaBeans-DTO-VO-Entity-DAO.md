@@ -77,10 +77,12 @@ published: true
 
 ### 쿼리로 모든 걸 해결하지 않아야 하는 이유
 - 여러 Aggregate에 걸친 조회 = 조인 사용 = 성능 저하
+
+
+
 1. 조인을 하지 않고 해결할 수 있는 케이스
   - Service 레이어에서 조합
-
-
+  
 
 2. JOIN이 필수적인 경우 (항상 부딪히는 문제)
   - Service 단에서 다른 AGGREGATE 를 다시 조합 (SELECT 문에 같은 AGGREGATE 컬럼만 존재)
