@@ -8,8 +8,6 @@ tags:
 published: true
 ---
 
-# 1주차 주간 회고
-
 Three Fs + Affirmation (긍정적 자기 선언)
 
 1. Facts (사실, 객관)
