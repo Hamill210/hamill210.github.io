@@ -1,3 +1,13 @@
+---
+layout: post
+title: '1주차 주간 회고'
+subtitle: 코드숨 1주차를 회고하며
+tags:
+  - 회고
+  - 코드숨
+published: true
+---
+
 # 1주차 주간 회고
 
 Three Fs + Affirmation (긍정적 자기 선언)
